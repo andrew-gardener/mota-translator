@@ -85,33 +85,13 @@ $(function(){
         } else if (cleanedUpText == '') {
             return text;
         // doesn't need to be transalted
-        } else if (/^[a-zA-Z0-9$@$!%*?&#^-_. +\\:]+$/.test(cleanedUpText)) {
+        } else if (/^[a-zA-Z0-9$@$!%*?&#^-_. \\+\:\[\]\(\)\,\'\"\~]+$/.test(cleanedUpText)) {
             return text;
         }
-
-        /*
-        // store text flag so they aren't accidently translated
-        let textFlags = {};
-        let match;
-        // \\+\w\[[^\]]*\] will work for examples: \r[whatever] and \\i[whatever_!@#$#%.png]
-        while (match = /\\*\w?\[[^\]]*\]/i.exec(text)) {
-            const key = '$|'+ Object.keys(textFlags).length + '|$';
-            textFlags[key] = match[0];
-            console.log("match[0]: ", textFlags[key]);
-            text = text.replace(textFlags[key], key);
-        }
-        */
 
         // translate the text
         let result = await $.get("https://translate.yandex.net/api/v1.5/tr.json/translate?text="+encodeURI(text)+"&lang=zh-en&key="+apiKey);
         translatedText = result.text[0];
-
-        /*
-        // insert the text flags back
-        for (const [key, value] of Object.entries(textFlags)) {
-            translatedText = translatedText.replace(key, value);
-        }
-        */
 
         // store the transation in localstorage
         localStorage.setItem("translation_prefix_"+text, translatedText);
