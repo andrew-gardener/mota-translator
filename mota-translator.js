@@ -77,7 +77,7 @@ $(function(){
         }
 
         // check for simple strings
-        let cleanedUpText = text.replace(/\\*\w?\[[^\]]*\]/i, '').trim();
+        let cleanedUpText = text.replace(/\\*\w?\[[^\]]*\]|\$\{[^\}]*\}/i, '').trim();
         if (/^[\+\-]?\d+w?$/.test(cleanedUpText)) {
             return text;
         } else if (cleanedUpText == '???') {
@@ -89,9 +89,25 @@ $(function(){
             return text;
         }
 
+        // store text flag so they aren't accidently translated
+        let textFlags = {};
+        let match;
+        // \$\{[[^\}]*\} will work for examples: ${5 flag:shop_times}
+        while (match = /\$\{[^\}]*\}/i.exec(text)) {
+            const key = '$|'+ Object.keys(textFlags).length + '|$';
+            textFlags[key] = match[0];
+            console.log("match[0]: ", textFlags[key]);
+            text = text.replace(textFlags[key], key);
+        }
+
         // translate the text
         let result = await $.get("https://translate.yandex.net/api/v1.5/tr.json/translate?text="+encodeURI(text)+"&lang=zh-en&key="+apiKey);
         translatedText = result.text[0];
+
+        // insert the text flags back
+        for (const [key, value] of Object.entries(textFlags)) {
+            translatedText = translatedText.replace(key, value);
+        }
 
         // store the transation in localstorage
         localStorage.setItem("translation_prefix_"+text, translatedText);
