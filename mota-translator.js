@@ -61,9 +61,32 @@ $(function(){
         });
     }
 
-    const generateTranslation = async function(text) {
-        console.log("generateTranslation", text)
+    const checkIfNeedsTranslation = function (text) {
         if (typeof text != "string") {
+            return false;
+        }
+
+        // check for simple strings
+        let cleanedUpText = text.replace(/\\*\w?\[[^\]]*\]|\$\{[^\}]*\}/i, '').trim();
+        if (/^[\+\-]?\d+w?$/.test(cleanedUpText)) {
+            return false;
+        } else if (cleanedUpText == '???') {
+            return false;
+        } else if (cleanedUpText == '') {
+            return false;
+        // doesn't need to be transalted
+        } else if (/^[a-zA-Z0-9$@$!%*?&#^-_. \\+\:\[\]\(\)\,\'\"\~]+$/.test(cleanedUpText)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    const generateTranslation = async function(text) {
+        if (logTranslation && console && console.log) {
+            console.log("generateTranslation", text);
+        }
+        if (!checkIfNeedsTranslation(text)) {
             return text;
         }
 
@@ -71,22 +94,9 @@ $(function(){
         let translatedText = localStorage.getItem("translation_prefix_"+text);
         if (translatedText) {
             if (logTranslation && console && console.log) {
-                console.log(translatedText, " | ", text);
+                console.log(text, " | ", translatedText);
             }
             return translatedText;
-        }
-
-        // check for simple strings
-        let cleanedUpText = text.replace(/\\*\w?\[[^\]]*\]|\$\{[^\}]*\}/i, '').trim();
-        if (/^[\+\-]?\d+w?$/.test(cleanedUpText)) {
-            return text;
-        } else if (cleanedUpText == '???') {
-            return text;
-        } else if (cleanedUpText == '') {
-            return text;
-        // doesn't need to be transalted
-        } else if (/^[a-zA-Z0-9$@$!%*?&#^-_. \\+\:\[\]\(\)\,\'\"\~]+$/.test(cleanedUpText)) {
-            return text;
         }
 
         // store text flag so they aren't accidently translated
@@ -96,7 +106,7 @@ $(function(){
         while (match = /\$\{[^\}]*\}/i.exec(text)) {
             const key = '$|'+ Object.keys(textFlags).length + '|$';
             textFlags[key] = match[0];
-            console.log("match[0]: ", textFlags[key]);
+            //console.log("match[0]: ", textFlags[key]);
             text = text.replace(textFlags[key], key);
         }
 
@@ -121,6 +131,7 @@ $(function(){
     updateScriptMenu();
 
     setTimeout(function(){
+        /*
         if (main.levelChoose) {
             for (var i = 0; i < main.levelChoose.length; i++) {
                 if (main.levelChoose[i][0]) {
@@ -129,17 +140,18 @@ $(function(){
                 }
             }
         }
+        */
 
         ui.prototype._old_drawTip = ui.prototype.drawTip;
         ui.prototype.drawTip = async function(text, id) {
             const translatedText = await generateTranslation(text);
-            return this._old_drawTip(translatedText, id);
+            return await this._old_drawTip(translatedText, id);
         };
 
         ui.prototype._old_drawTextBox = ui.prototype.drawTextBox;
         ui.prototype.drawTextBox = async function(content, showAll) {
             const translatedText = await generateTranslation(content);
-            return this._old_drawTextBox(translatedText, showAll);
+            return await this._old_drawTextBox(translatedText, showAll);
         }
 
         ui.prototype._old_drawChoices = ui.prototype.drawChoices;
@@ -153,32 +165,41 @@ $(function(){
                     }
                 }
             }
-            return this._old_drawChoices(translatedText, choices);
+            return await this._old_drawChoices(translatedText, choices);
         }
 
         ui.prototype._old_drawScrollText = ui.prototype.drawScrollText;
         ui.prototype.drawScrollText = async function (content, time, lineHeight, callback) {
             const translatedText = await generateTranslation(content);
-            return this._old_drawScrollText(translatedText, time, lineHeight, callback);
+            return await this._old_drawScrollText(translatedText, time, lineHeight, callback);
         }
 
         ui.prototype._old_drawConfirmBox = ui.prototype.drawConfirmBox;
         ui.prototype.drawConfirmBox = async function (text, yesCallback, noCallback) {
             const translatedText = await generateTranslation(text);
-            return this._old_drawConfirmBox(translatedText, yesCallback, noCallback);
+            return await this._old_drawConfirmBox(translatedText, yesCallback, noCallback);
 
         }
 
         ui.prototype._old_drawWaiting = ui.prototype.drawWaiting;
         ui.prototype.drawWaiting = async function(text) {
             const translatedText = await generateTranslation(text);
-            return this._old_drawWaiting(translatedText);
+            return await this._old_drawWaiting(translatedText);
         }
 
         ui.prototype._old_fillText = ui.prototype.fillText;
-        ui.prototype.fillText = async function (name, text, x, y, style, font, maxWidth) {
+        ui.prototype.fillText = function (name, text, x, y, style, font, maxWidth) {
+            // only use asyncfillText function if its actually needed
+            // doing this should improve compatability
+            if (!checkIfNeedsTranslation(text)) {
+                return this._old_fillText(name, text, x, y, style, font, maxWidth);
+            } else {
+                return this.asyncfillText(name, text, x, y, style, font, maxWidth);
+            }
+        }
+        ui.prototype.asyncfillText = async function (name, text, x, y, style, font, maxWidth) {
             const translatedText = await generateTranslation(text);
             return await this._old_fillText(name, translatedText, x, y, style, font, maxWidth);
         }
-    }, 2000);
+    }, 3000);
 });
