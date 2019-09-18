@@ -1,8 +1,8 @@
 # mota-translator
 
-HTML5 Canvas Text Translator Script for https://github.com/ckcz123/mota-js/
+Text Translator Script for https://github.com/ckcz123/mota-js/
 
-This script only translates the Canvas generated game text which does not include certain UI components. To translate those, just use the Google Translate extension or something similar. 
+This script only translates some game text by overwriting some UI class functions. Some text is directly written using HTML elements and images which are not handled right now. The HTML elements can be translated using a Google Translate extension or something similar. 
 
 ## Prerequisites
 
