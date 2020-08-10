@@ -9,33 +9,17 @@ This script only translates some game text by overwriting some UI class function
 - Tampermonkey (or user script alternative) installed - https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo?hl=en 
 - Adding this script to Tampermonkey
 
-## Setup a Yandex account and getting an API key
-
-This script uses https://translate.yandex.com to translate the Canvas text (since it is free and pretty decent). You can create an account by:
-
-- Going to https://passport.yandex.com/registration
-- Filling in the form (Yandex is a Russian site so I __cannot__ vouch for its trustworthiness. You can just fill in fake info and use a security question instead of giving them your phone number)
-- Clicking `Register`
-
-After your account is setup:
-- Go to https://translate.yandex.com/developers/keys
-- Click `+ Create a new key`
-- Click `Create`
-- Copy the generated key for later (should be something like `trnsl.1.1.` followed by a bunch or random characters)
-
 ## Using the translation script
 
-Find an interesting game from https://h5mota.com/ and open it. 
+- Make sure that the script is enabled in Tampermonkey. 
+- Find an interesting game from https://h5mota.com/ and open it. 
+- The ingame text should be automatically translated (there might a slight delay)
 
-You should be prompted to enter an API key when you run the script for the first time. Enter the API Key you generated above. That's it, the canvas text should now automatically be translated to English. 
-
-### Change API key
-
-If you made a mistake, you can re-enter the API key by using the `Enter new API Key` button in the Tampermonkey menu (only appears when your in a game).
-
-### Disable/Enable translation
-
-You can disable and re-enable the translation by clicking the `Disable/Enable Canvas Translation` button in the Tampermonkey menu (only appears when your in a game).
+Notes/Problems: 
+- difficulty level is usually not translated since it hooks into the UI differently
+- the text will be messed up sometimes since the traslations are asynchronous (delayed) and the UI functions generally work synchronously. 
+- the first monster in the monster book is usually hard/impossible to read because the font color gets messed up due to the delay
+- if you skip text that is being translated, it sometimes triggers a javascript error causing you to be "stuck". reloading the window and opening the last save will get you almost back were you were.
 
 ### Log translations to console
 
