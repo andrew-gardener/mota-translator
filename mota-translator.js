@@ -163,7 +163,9 @@ $(function(){
             }),
         })
         const result = JSON.parse(ret.responseText);
-        console.log("result", result);
+        if (logTranslation && console && console.log) {
+           console.log("result", result);
+        }
         translatedText = result.translations[0].translation;
 
         // insert the text flags back
@@ -195,19 +197,27 @@ $(function(){
         */
 
         ui.prototype._old_drawTip = ui.prototype.drawTip;
-        ui.prototype.drawTip = function(text, id) {
-            if (checkIfNeedsTranslation(text)) {
-                return asyncWaitWrapper(this, this._old_drawTip, [text, id], 0, 'drawTip');
-            }
-            return this._old_drawTip(text, id);
-        };
+        if (ui.prototype._old_drawTip.length == 3) {
+            ui.prototype.drawTip = function(text, id, frame) {
+                if (checkIfNeedsTranslation(text)) {
+                    return asyncWaitWrapper(this, this._old_drawTip, [text, id, frame], 0, 'drawTip');
+                }
+                return this._old_drawTip(text, id, frame);
+            };
+        } else {
+            ui.prototype.drawTip = function(text, id) {
+                if (checkIfNeedsTranslation(text)) {
+                    return asyncWaitWrapper(this, this._old_drawTip, [text, id], 0, 'drawTip');
+                }
+                return this._old_drawTip(text, id);
+            };
+        }
 
         ui.prototype._old_drawTextBox = ui.prototype.drawTextBox;
         ui.prototype.drawTextBox = function(content, showAll) {
             if (checkIfNeedsTranslation(content)) {
                 return asyncWaitWrapper(this, this._old_drawTextBox, [content, showAll], 0, 'drawTextBox');
             }
-            console.log('drawTextBox', content, showAll)
             return this._old_drawTextBox(content, showAll);
         }
 
@@ -235,13 +245,14 @@ $(function(){
             return this._old_drawWaiting(text);
         }
 
+        /*
         ui.prototype._old_drawTextContent = ui.prototype.drawTextContent;
-        ui.prototype.drawTextContent = async function (ctx, content, config) {
-            if (checkIfNeedsTranslation(text)) {
+        ui.prototype.drawTextContent = function (ctx, content, config) {
+            if (checkIfNeedsTranslation(content)) {
                 return asyncWaitWrapper(this, this._old_drawTextContent, [ctx, content, config], 1, 'drawTextContent');
             }
             return this._old_drawTextContent(ctx, content, config);
-        }
+        }*/
 
 /*
         ui.prototype._old_fillText = ui.prototype.fillText;
@@ -277,7 +288,7 @@ $(function(){
 */
         const asyncWaitWrapper = async function(_this, func, funcArgs, textIndex, funcName) {
             funcArgs[textIndex] = await generateTranslation(funcArgs[textIndex], funcName);
-            return await func.apply(_this, funcArgs);
+            return func.apply(_this, funcArgs);
         }
 
 
@@ -385,7 +396,7 @@ $(function(){
             }
             return {
                 name: "name", lv: "lvl", hpmax: "MxHP", hp: "HP", manamax: "MxMana", mana: "Mana",
-                atk: "atk", def: "def", mdef: "mdef", money: "$", exp: "exp", point: "加点", steps: "步数"
+                atk: "atk", def: "def", mdef: "mdef", money: "$", exp: "exp", point: "point", steps: "step"
             }[name] || name;
         }
 
