@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tower of the Sorcerer Translate
 // @namespace    http://tampermonkey.net/
-// @version      3.1.0
+// @version      3.2.0
 // @match        https://h5mota.com/*
 // @run-at       document-end
 // @grant        GM_setValue
@@ -20,10 +20,12 @@
 let localStorage = window.localStorage,
     textPoints = [],
     currentLogTranslationMenuItem = null,
+    currentTranslateFillText = null,
     currentApiBaseUrlMenuItem = null,
     currentApiKeyMenuItem = null
 
-let logTranslation = GM_getValue('logTranslation', 'true') === 'false'
+let logTranslation = GM_getValue('logTranslation', 'false') == 'true'
+let translateFillText = GM_getValue('translateFillText', 'false') == 'true'
 let apiBaseUrl = GM_getValue('ibmApiBaseUrl', 'https://api.us-south.language-translator.watson.cloud.ibm.com/instances/53857e8f-a931-4c00-8257-a17a4a5e9e17')
 let encodeKey = GM_getValue('encodeKey', '')
 let apiKey = null
@@ -60,6 +62,7 @@ if (apiKey) {
 
 const updateScriptMenu = () => {
     if (currentLogTranslationMenuItem) { GM_unregisterMenuCommand(currentLogTranslationMenuItem); }
+    if (currentTranslateFillText) { GM_unregisterMenuCommand(currentTranslateFillText); }
     if (currentApiKeyMenuItem) { GM_unregisterMenuCommand(currentApiKeyMenuItem); }
     if (currentApiBaseUrlMenuItem) { GM_unregisterMenuCommand(currentApiBaseUrlMenuItem); }
 
@@ -68,6 +71,14 @@ const updateScriptMenu = () => {
         logTranslation = !logTranslation
         GM_setValue('logTranslation', logTranslation ? 'true' : 'false')
         GM_unregisterMenuCommand(currentLogTranslationMenuItem)
+        updateScriptMenu()
+    })
+
+    const translateFillTextMessage = translateFillText ? 'Stop translating UI fillText functions' : 'Translate UI fillText fuctions (buggy)'
+    currentTranslateFillText = GM_registerMenuCommand(translateFillTextMessage, () => {
+        translateFillText = !translateFillText
+        GM_setValue('translateFillText', translateFillText ? 'true' : 'false')
+        GM_unregisterMenuCommand(currentTranslateFillText)
         updateScriptMenu()
     })
 
@@ -280,6 +291,7 @@ const translateStartButtons = () => {
     }
 }
 
+
 const addLibPrototypeOverrides = () => {
     ui.prototype._old_drawTip = ui.prototype.drawTip
     if (ui.prototype._old_drawTip.length == 3) {
@@ -397,16 +409,60 @@ const addLibPrototypeOverrides = () => {
         }
         translateWrapper(this)
     }
-    /*
-    ui.prototype._old__drawToolbox_drawDescription  = ui.prototype._drawToolbox_drawDescription
-    ui.prototype._drawToolbox_drawDescription = function(info, max_height) {
-        const translateWrapper = async (_this) => {
-            const _content = await generateTranslation(content, 'textImage')
-            _this._old__drawToolbox_drawDescription(info, max_height)
-        }
-        translateWrapper(this)
-    }*/
 
+    ui.prototype._old_fillText = ui.prototype.fillText
+    if (ui.prototype._old_fillText.length == 7) {
+        ui.prototype.fillText = function (name, text, x, y, style, font, maxWidth) {
+            if (!translateFillText) {
+                this._old_fillText(name, text, x, y, style, font, maxWidth)
+            } else {
+                const translateWrapper = async (_this) => {
+                    const _text = await generateTranslation(text, 'fillText')
+                    _this._old_fillText(name, _text, x, y, style, font, maxWidth)
+                }
+                translateWrapper(this)
+            }
+        }
+    } else {
+        ui.prototype.fillText = function (name, text, x, y, style, font) {
+            if (!translateFillText) {
+                this._old_fillText(name, text, x, y, style, font)
+            } else {
+                const translateWrapper = async (_this) => {
+                    const _text = await generateTranslation(text, 'fillText')
+                    _this._old_fillText(name, _text, x, y, style, font)
+                }
+                translateWrapper(this)
+            }
+        }
+    }
+
+    ui.prototype._old_fillBoldText = ui.prototype.fillBoldText
+    if (ui.prototype._old_fillBoldText.length == 7) {
+        ui.prototype.fillBoldText = function (name, text, x, y, style, strokeStyle, font) {
+            if (!translateFillText) {
+                this._old_fillBoldText(name, text, x, y, style, strokeStyle, font)
+            } else {
+                const translateWrapper = async (_this) => {
+                    const _text = await generateTranslation(text, 'fillText')
+                    _this._old_fillBoldText(name, _text, x, y, style, strokeStyle, font)
+                }
+                translateWrapper(this)
+            }
+        }
+    } else {
+        ui.prototype.fillBoldText = function (name, text, x, y, style, font) {
+            if (!translateFillText) {
+                this._old_fillBoldText(name, text, x, y, style, font)
+            } else {
+                const translateWrapper = async (_this) => {
+                    const _text = await generateTranslation(text, 'fillText')
+                    _this._old_fillBoldText(name, _text, x, y, style, font)
+                }
+                translateWrapper(this)
+            }
+        }
+    }
 
 
     control.prototype._old_getStatusLabel = control.prototype.getStatusLabel
@@ -420,6 +476,8 @@ const addLibPrototypeOverrides = () => {
         }[name] || name
     }
 }
+
+
 
 const translateEnemies = async () => {
     const promises = []
@@ -692,35 +750,3 @@ const translateCustom = async () => {
 
     return await Promise.all(promises)
 }
-
-
-
-
-// in case I need it again
-/*
-        ui.prototype._old_drawTextContent = ui.prototype.drawTextContent
-        ui.prototype.drawTextContent = async function (ctx, content, config) {
-            let _content = await generateTranslation(content, 'drawTextContent')
-            return this._old_drawTextContent(ctx, _content, config)
-        }
-
-        ui.prototype._old_fillText = ui.prototype.fillText
-        ui.prototype.fillText = async function (name, text, x, y, style, font, maxWidth) {
-            let _text = await generateTranslation(text, 'fillText')
-            return this._old_fillText(name, _text, x, y, style, font, maxWidth)
-        }
-
-        ui.prototype._old_fillBoldText = ui.prototype.fillBoldText
-        ui.prototype.fillBoldText = async function (name, text, x, y, style, font) {
-            let _text = await generateTranslation(text, 'fillBoldText')
-            return this._old_fillBoldText(name, _text, x, y, style, font)
-        }
-
-
-        ui.prototype._old__uievent_fillText  = ui.prototype._uievent_fillText
-        ui.prototype._uievent_fillText = async function(data) {
-            let _data = deepcopy(data || [])
-            _data.text = await generateTranslation(_data.text, '_uievent_fillTextTranslate-data-text')
-            return this._old__uievent_fillText(_data)
-        }
-*/
