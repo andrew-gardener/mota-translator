@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tower of the Sorcerer Translate
 // @namespace    http://tampermonkey.net/
-// @version      3.0.0
+// @version      3.1.0
 // @match        https://h5mota.com/*
 // @run-at       document-end
 // @grant        GM_setValue
@@ -113,11 +113,28 @@ const checkIfNeedsTranslation = (text) => {
     } else if (cleanedUpText == '') {
         return false
         // doesn't need to be transalted
-    } else if (/^[\wäöüÄÖÜß\d\s !@#$%^&*?？^-_.\\+\:\[\]\(\)\,\'\"\~;\/`\-=<>{}]+$/.test(cleanedUpText)) {
+    } else if (/^[\wäöüÄÖÜß\d\s\x08 !@#$%^&*?？^-_.\\+\:\[\]\(\)\,\'\"\~;\/`\-=<>{}]+$/.test(cleanedUpText)) {
         return false
     }
 
     return true
+}
+
+const getTranslationForSyncronousFuntionReturn = (text, funcCallTracker) => {
+    if (!checkIfNeedsTranslation(text)) {
+        return text
+    }
+
+    // use stored translations if available
+    const translatedText = localStorage.getItem(`translation_prefix_${text}`)
+    if (translatedText) {
+        return translatedText
+    }
+
+    // else generate a translation for next time itss called
+    generateTranslation(text, funcCallTracker)
+
+    return text
 }
 
 const generateTranslation = async (text, funcCallTracker) => {
@@ -142,8 +159,8 @@ const generateTranslation = async (text, funcCallTracker) => {
     let textFlagsTemp = {}
     let match
     // \$\{[[^\}]*\}|\[[^\]]*\] will work for examples:
-    // `${5 flag:shop_times}` or `\t[`见见`,z1]` or `[v]` or `\t[`见见`]`
-    while (match = /\$\{[^\}]*\}|\t*\[[\w\d\s !@#$%^&*?？^-_.\\+\:\(\)\,\'\"\~;\/`\-=<>{}]*\]?|\,?[\w\d\s !@#$%^&*?？^-_.\\+\:\(\)\,\'\"\~;\/`\-=<>{}]*\]|\t+/i.exec(text)) {
+    // `${5 flag:shop_times}` or `\t[`见见`,z1]` or `[v]` or `\t[`见见`]` `\b`
+    while (match = /\$\{[^\}]*\}|\t*\[[\w\d\s !@#$%^&*?？^-_.\\+\:\(\)\,\'\"\~;\/`\-=<>{}]*\]?|\,?[\w\d\s !@#$%^&*?？^-_.\\+\:\(\)\,\'\"\~;\/`\-=<>{}]*\]|\t+|\x08+/i.exec(text)) {
         const key = `@${Object.keys(textFlagsTemp).length}`
         textFlagsTemp[key] = match[0]
         if (logTranslation && console && console.log) {
@@ -182,7 +199,8 @@ const generateTranslation = async (text, funcCallTracker) => {
 
     // insert the text flags back
     for (const [key, value] of Object.entries(textFlags)) {
-        translatedText = translatedText.replace(key, value)
+        const regex = new RegExp(key.replace(/\s/gi, '\\s?').replace(/(\[|\])/gi, '\\$1'), 'ig')
+        translatedText = translatedText.replace(regex, value)
     }
 
     // store the transation in localstorage
@@ -230,18 +248,29 @@ const translateResources = async () => {
     core.firstData = deepcopy(core.data.firstData)
 
     // no promise because its easier
-    translateDifficulty()
+    translateStartButtons()
     addLibPrototypeOverrides()
+    translateCustom()
 
     let promises = []
+    promises.push(translateFloors())
     if (libsLoaded.includes('enemys')) {
         promises.push(translateEnemies())
+    }
+    if (libsLoaded.includes('data')) {
+        promises.push(translateData())
+    }
+    if (libsLoaded.includes('items')) {
+        promises.push(translateItems())
+    }
+    if (libsLoaded.includes('maps')) {
+        promises.push(translateMaps())
     }
 
     return await Promise.all(promises)
 }
 
-const translateDifficulty = () => {
+const translateStartButtons = () => {
     if ($('span.startButton').length > 0) {
         $('span.startButton').each(async (i, span) => {
             const text = $(span).text()
@@ -368,6 +397,16 @@ const addLibPrototypeOverrides = () => {
         }
         translateWrapper(this)
     }
+    /*
+    ui.prototype._old__drawToolbox_drawDescription  = ui.prototype._drawToolbox_drawDescription
+    ui.prototype._drawToolbox_drawDescription = function(info, max_height) {
+        const translateWrapper = async (_this) => {
+            const _content = await generateTranslation(content, 'textImage')
+            _this._old__drawToolbox_drawDescription(info, max_height)
+        }
+        translateWrapper(this)
+    }*/
+
 
 
     control.prototype._old_getStatusLabel = control.prototype.getStatusLabel
@@ -379,26 +418,6 @@ const addLibPrototypeOverrides = () => {
             name: 'name', lv: 'lvl', hpmax: 'MxHP', hp: 'HP', manamax: 'MxMana', mana: 'Mana',
             atk: 'atk', def: 'def', mdef: 'mdef', money: '$', exp: 'exp', point: 'point', steps: 'step'
         }[name] || name
-    }
-
-    // more customized (skill tree that appears every here and there?)
-    if (typeof Scene_Skill !== 'undefined') {
-        let _old_Scene_Skill = Scene_Skill
-        Scene_Skill = function() {
-            this._Scene_Skill = new _old_Scene_Skill()
-
-            this._Scene_Skill._old_drawText = this._Scene_Skill.drawText
-            this._Scene_Skill.drawText = function(g, j, k, e, d, a, f) {
-                if (g !== undefined) {
-                    const translateWrapper = async (_this) => {
-                        const _g = await generateTranslation(g, 'Scene_Skill-_old_drawText')
-                        _this._old_drawText(_g, j, k, e, d, a, f)
-                    }
-                    translateWrapper(this)
-                }
-            }
-            return this._Scene_Skill
-        }
     }
 }
 
@@ -428,13 +447,26 @@ const translateEnemies = async () => {
                 special[1] = text
             }
             promises.push(translateWrapper())
+        } else if (typeof special[1] === 'function') {
+            const _old_func = special[1]
+            special[1] = function(a) {
+                const text = _old_func(a)
+                return getTranslationForSyncronousFuntionReturn(text, 'enemydata-special-name-func')
+            }
         }
+
         if (typeof special[2] === 'string') {
             const translateWrapper = async () => {
                 const text = await generateTranslation(special[2], 'enemydata-special-desc')
                 special[2] = text
             }
             promises.push(translateWrapper())
+        } else if (typeof special[2] === 'function') {
+            const _old_func = special[2]
+            special[2] = function(a) {
+                const text = _old_func(a)
+                return getTranslationForSyncronousFuntionReturn(text, 'enemydata-special-desc-func')
+            }
         }
     }
     enemydata.getSpecials = function() {
@@ -442,6 +474,227 @@ const translateEnemies = async () => {
     }
     return await Promise.all(promises)
 }
+
+const translateData = async () => {
+    const promises = []
+    const mainData = core.data.main
+    const firstData = core.data.firstData
+    const hero = firstData.hero
+
+    /*
+    if (firstData.title) {
+        const translateWrapper = async () => {
+            const text = await generateTranslation(firstData.title, 'firstData.title')
+            firstData.title = text
+        }
+        promises.push(translateWrapper())
+    }
+    */
+
+    if (firstData.name) {
+        const translateWrapper = async () => {
+            const text = await generateTranslation(firstData.name, 'firstData.name')
+            firstData.name = text
+        }
+        promises.push(translateWrapper())
+    }
+
+    if (hero.name) {
+        const translateWrapper = async () => {
+            const text = await generateTranslation(hero.name, 'firstData.hero.name')
+            hero.name = text
+        }
+        promises.push(translateWrapper())
+    }
+
+    if (firstData.shops) {
+        for (let i=0; i < firstData.shops.length; i++) {
+            if (firstData.shops[i].name) {
+                const translateWrapper = async () => {
+                    const text = await generateTranslation(firstData.shops[i].name, 'firstData.shops.name')
+                    firstData.shops[i].name = text
+                }
+                promises.push(translateWrapper())
+            }
+            if (firstData.shops[i].textInList) {
+                const translateWrapper = async () => {
+                    const text = await generateTranslation(firstData.shops[i].textInList, 'firstData.shops.textInList')
+                    firstData.shops[i].textInList = text
+                }
+                promises.push(translateWrapper())
+            }
+            if (firstData.shops[i].text) {
+                const translateWrapper = async () => {
+                    const text = await generateTranslation(firstData.shops[i].text, 'firstData.shops.text')
+                    firstData.shops[i].text = text
+                }
+                promises.push(translateWrapper())
+            }
+        }
+    }
+
+    if (firstData.levelUp) {
+        for (let i=0; i < firstData.levelUp.length; i++) {
+            if (firstData.levelUp[i].title) {
+                const translateWrapper = async () => {
+                    const text = await generateTranslation(firstData.levelUp[i].title, 'firstData.levelUp.title')
+                    firstData.levelUp[i].title = text
+                }
+                promises.push(translateWrapper())
+            }
+        }
+    }
+
+    return await Promise.all(promises)
+}
+
+const translateItems = async () => {
+    const promises = []
+    const items = core.items.items
+
+    const itemsArray = Object.entries(items)
+    for (let i=0; i < itemsArray.length; i++) {
+        let [key, item] = itemsArray[i]
+        if (item.name) {
+            const translateWrapper = async () => {
+                const text = await generateTranslation(item.name, 'items.items.name')
+                item.name = text
+            }
+            promises.push(translateWrapper())
+        }
+        if (item.text) {
+            const translateWrapper = async () => {
+                const text = await generateTranslation(item.text, 'items.items.text')
+                item.text = text
+            }
+            promises.push(translateWrapper())
+        }
+    }
+
+    return await Promise.all(promises)
+}
+
+const translateFloors = async () => {
+    const promises = []
+    const floors = main.floors
+
+    const floorsArray = Object.entries(floors)
+    for (let i=0; i < floorsArray.length; i++) {
+        let [key, floor] = floorsArray[i]
+        if (floor.title) {
+            const translateWrapper = async () => {
+                const text = await generateTranslation(floor.title, 'main.floors.title')
+                floor.title = text
+            }
+            promises.push(translateWrapper())
+        }
+        if (floor.name) {
+            const translateWrapper = async () => {
+                const text = await generateTranslation(floor.name, 'main.floors.name')
+                floor.name = text
+            }
+            promises.push(translateWrapper())
+        }
+    }
+
+    return await Promise.all(promises)
+}
+
+const translateMaps = async () => {
+    const promises = []
+    const blocksInfo = core.maps.blocksInfo
+
+    const blocksInfoArray = Object.entries(blocksInfo)
+    for (let i=0; i < blocksInfoArray.length; i++) {
+        let [key, blockInfo] = blocksInfoArray[i]
+        if (blockInfo.cls.toLowerCase().includes('npc')) {
+            if (blockInfo.name) {
+                const translateWrapper = async () => {
+                    const text = await generateTranslation(blockInfo.name, 'maps.blocksInfo.name (npc)')
+                    blockInfo.name = text
+                }
+                promises.push(translateWrapper())
+            }
+        }
+    }
+
+    return await Promise.all(promises)
+}
+
+
+const translateCustom = async () => {
+    const promises = []
+
+    // more customized stuff like skills trees that show up in at least 1 game??
+    if (typeof Fux2 !== 'undefined' && Fux2.skillTree) {
+        const skillTreePages = Fux2.skillTree
+
+        for (let j=0; j < skillTreePages.length; j++) {
+            const skillTreePage = skillTreePages[j]
+
+            for (let i=0; i < skillTreePage.length; i++) {
+                if (skillTreePage[i].name) {
+                    const translateWrapper = async () => {
+                        const text = await generateTranslation(skillTreePage[i].name, 'Fux2.skillTree.name')
+                        skillTreePage[i].name = text
+                    }
+                    promises.push(translateWrapper())
+                }
+
+                if (skillTreePage[i].desc) {
+                    skillTreePage[i]._old_desc = skillTreePage[i].desc
+                    skillTreePage[i].desc = function(a) {
+                        const text = skillTreePage[i]._old_desc(a)
+                        return getTranslationForSyncronousFuntionReturn(text, 'Fux2.skillTree.desc')
+                    }
+                }
+
+                if (skillTreePage[i].cost) {
+                    skillTreePage[i]._old_cost = skillTreePage[i].cost
+                    skillTreePage[i].cost = function(c) {
+                        const [text, otherValue] = skillTreePage[i]._old_cost(c)
+                        return [getTranslationForSyncronousFuntionReturn(text, 'Fux2.skillTree.cost'), otherValue]
+                    }
+                }
+            }
+        }
+
+    }
+
+    if (core.linkDatas) {
+        const linkDatas = core.linkDatas
+
+        for (let i=0; i < linkDatas.length; i++) {
+            if (linkDatas[i].name) {
+                const translateWrapper = async () => {
+                    const text = await generateTranslation(linkDatas[i].name, 'linkDatas.name')
+                    linkDatas[i].name = text
+                }
+                promises.push(translateWrapper())
+            }
+
+            if (linkDatas[i].desc && typeof linkDatas[i].desc === 'function') {
+                linkDatas[i]._old_desc = linkDatas[i].desc
+                linkDatas[i].desc = function(a) {
+                    const text = linkDatas[i]._old_desc(a)
+                    return getTranslationForSyncronousFuntionReturn(text, 'linkDatas.desc-func')
+                }
+            } else if (linkDatas[i].desc && typeof linkDatas[i].desc === 'string') {
+                const translateWrapper = async () => {
+                    const text = await generateTranslation(linkDatas[i].desc, 'linkDatas.desc')
+                    linkDatas[i].desc = text
+                }
+                promises.push(translateWrapper())
+            }
+        }
+    }
+
+
+    return await Promise.all(promises)
+}
+
+
+
 
 // in case I need it again
 /*
