@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tower of the Sorcerer Translate
 // @namespace    http://tampermonkey.net/
-// @version      3.2.0
+// @version      3.3.0
 // @match        https://h5mota.com/*
 // @run-at       document-end
 // @grant        GM_setValue
@@ -171,7 +171,14 @@ const generateTranslation = async (text, funcCallTracker) => {
     let match
     // \$\{[[^\}]*\}|\[[^\]]*\] will work for examples:
     // `${5 flag:shop_times}` or `\t[`见见`,z1]` or `[v]` or `\t[`见见`]` `\b`
-    while (match = /\$\{[^\}]*\}|\t*\[[\w\d\s !@#$%^&*?？^-_.\\+\:\(\)\,\'\"\~;\/`\-=<>{}]*\]?|\,?[\w\d\s !@#$%^&*?？^-_.\\+\:\(\)\,\'\"\~;\/`\-=<>{}]*\]|\t+|\x08+/i.exec(text)) {
+    /*
+    \$\{[^\}]*\}|
+    \t*\x08*\[[\w\d\s !@#$%^&*?？^-_.\\+\:\(\)\,\'\"\~;\/`\-=<>{}]*\]?|
+    \,?[\w\d\s !@#$%^&*?？^-_.\\+\:\(\)\,\'\"\~;\/`\-=<>{}]*\]|
+    \t+|
+    \x08+
+    */
+    while (match = /\$\{[^\}]*\}|\t*\x08*\[[\w\d\s !@#$%^&*?？^-_.\\+\:\(\)\,\'\"\~;\/`\-=<>{}]*\]?|\,?[\w\d\s !@#$%^&*?？^-_.\\+\:\(\)\,\'\"\~;\/`\-=<>{}]*\]|\t+|\x08+/i.exec(text)) {
         const key = `@${Object.keys(textFlagsTemp).length}`
         textFlagsTemp[key] = match[0]
         if (logTranslation && console && console.log) {
@@ -242,9 +249,11 @@ main.loaderJs = function (dir, loadList, callback) {
 }
 
 main._old_loaderFloors = main.loaderFloors
-main.loaderFloors = async function (callback) {
-    await translateResources()
-    this._old_loaderFloors(callback)
+main.loaderFloors = function (callback) {
+    this._old_loaderFloors( async () => {
+        await translateResources()
+        callback()
+    })
 }
 main._old_loadFloors = main.loadFloors
 main.loadFloors = async function (callback) {
@@ -293,22 +302,24 @@ const translateStartButtons = () => {
 
 
 const addLibPrototypeOverrides = () => {
-    ui.prototype._old_drawTip = ui.prototype.drawTip
-    if (ui.prototype._old_drawTip.length == 3) {
-        ui.prototype.drawTip = function(text, id, frame) {
-            const translateWrapper = async (_this) => {
-                const _text = await generateTranslation(text, 'drawTip')
-                _this._old_drawTip(_text, id, frame)
+    if (ui.prototype.drawTip) {
+        ui.prototype._old_drawTip = ui.prototype.drawTip
+        if (ui.prototype._old_drawTip.length == 3) {
+            ui.prototype.drawTip = function(text, id, frame) {
+                const translateWrapper = async (_this) => {
+                    const _text = await generateTranslation(text, 'drawTip')
+                    _this._old_drawTip(_text, id, frame)
+                }
+                translateWrapper(this)
             }
-            translateWrapper(this)
-        }
-    } else {
-        ui.prototype.drawTip = function(text, id) {
-            const translateWrapper = async (_this) => {
-                const _text = await generateTranslation(text, 'drawTip')
-                _this._old_drawTip(_text, id)
+        } else {
+            ui.prototype.drawTip = function(text, id) {
+                const translateWrapper = async (_this) => {
+                    const _text = await generateTranslation(text, 'drawTip')
+                    _this._old_drawTip(_text, id)
+                }
+                translateWrapper(this)
             }
-            translateWrapper(this)
         }
     }
 
@@ -410,56 +421,61 @@ const addLibPrototypeOverrides = () => {
         translateWrapper(this)
     }
 
-    ui.prototype._old_fillText = ui.prototype.fillText
-    if (ui.prototype._old_fillText.length == 7) {
-        ui.prototype.fillText = function (name, text, x, y, style, font, maxWidth) {
-            if (!translateFillText) {
-                this._old_fillText(name, text, x, y, style, font, maxWidth)
-            } else {
-                const translateWrapper = async (_this) => {
-                    const _text = await generateTranslation(text, 'fillText')
-                    _this._old_fillText(name, _text, x, y, style, font, maxWidth)
+    if (ui.prototype.fillText) {
+        ui.prototype._old_fillText = ui.prototype.fillText
+        if (ui.prototype._old_fillText.length == 7) {
+            ui.prototype.fillText = function (name, text, x, y, style, font, maxWidth) {
+                if (!translateFillText) {
+                    this._old_fillText(name, text, x, y, style, font, maxWidth)
+                } else {
+                    const translateWrapper = async (_this) => {
+                        const _text = await generateTranslation(text, 'fillText')
+                        _this._old_fillText(name, _text, x, y, style, font, maxWidth)
+                    }
+                    translateWrapper(this)
                 }
-                translateWrapper(this)
             }
-        }
-    } else {
-        ui.prototype.fillText = function (name, text, x, y, style, font) {
-            if (!translateFillText) {
-                this._old_fillText(name, text, x, y, style, font)
-            } else {
-                const translateWrapper = async (_this) => {
-                    const _text = await generateTranslation(text, 'fillText')
-                    _this._old_fillText(name, _text, x, y, style, font)
+        } else {
+            ui.prototype.fillText = function (name, text, x, y, style, font) {
+                if (!translateFillText) {
+                    this._old_fillText(name, text, x, y, style, font)
+                } else {
+                    const translateWrapper = async (_this) => {
+                        const _text = await generateTranslation(text, 'fillText')
+                        _this._old_fillText(name, _text, x, y, style, font)
+                    }
+                    translateWrapper(this)
                 }
-                translateWrapper(this)
             }
         }
     }
 
-    ui.prototype._old_fillBoldText = ui.prototype.fillBoldText
-    if (ui.prototype._old_fillBoldText.length == 7) {
-        ui.prototype.fillBoldText = function (name, text, x, y, style, strokeStyle, font) {
-            if (!translateFillText) {
-                this._old_fillBoldText(name, text, x, y, style, strokeStyle, font)
-            } else {
-                const translateWrapper = async (_this) => {
-                    const _text = await generateTranslation(text, 'fillText')
-                    _this._old_fillBoldText(name, _text, x, y, style, strokeStyle, font)
+
+    if (ui.prototype.fillBoldText) {
+        ui.prototype._old_fillBoldText = ui.prototype.fillBoldText
+        if (ui.prototype._old_fillBoldText.length == 7) {
+            ui.prototype.fillBoldText = function (name, text, x, y, style, strokeStyle, font) {
+                if (!translateFillText) {
+                    this._old_fillBoldText(name, text, x, y, style, strokeStyle, font)
+                } else {
+                    const translateWrapper = async (_this) => {
+                        const _text = await generateTranslation(text, 'fillText')
+                        _this._old_fillBoldText(name, _text, x, y, style, strokeStyle, font)
+                    }
+                    translateWrapper(this)
                 }
-                translateWrapper(this)
             }
-        }
-    } else {
-        ui.prototype.fillBoldText = function (name, text, x, y, style, font) {
-            if (!translateFillText) {
-                this._old_fillBoldText(name, text, x, y, style, font)
-            } else {
-                const translateWrapper = async (_this) => {
-                    const _text = await generateTranslation(text, 'fillText')
-                    _this._old_fillBoldText(name, _text, x, y, style, font)
+        } else {
+            ui.prototype.fillBoldText = function (name, text, x, y, style, font) {
+                if (!translateFillText) {
+                    this._old_fillBoldText(name, text, x, y, style, font)
+                } else {
+                    const translateWrapper = async (_this) => {
+                        const _text = await generateTranslation(text, 'fillText')
+                        _this._old_fillBoldText(name, _text, x, y, style, font)
+                    }
+                    translateWrapper(this)
                 }
-                translateWrapper(this)
             }
         }
     }
