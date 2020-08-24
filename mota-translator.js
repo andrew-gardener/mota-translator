@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Tower of the Sorcerer Translate
 // @namespace    http://tampermonkey.net/
-// @version      3.3.0
-// @match        https://h5mota.com/*
+// @version      3.3.1
+// @match        https://h5mota.com/games/*
 // @run-at       document-end
 // @grant        GM_setValue
 // @grant        GM_getValue
@@ -18,7 +18,6 @@
 'use strict'
 
 let localStorage = window.localStorage,
-    textPoints = [],
     currentLogTranslationMenuItem = null,
     currentTranslateFillText = null,
     currentApiBaseUrlMenuItem = null,
@@ -167,31 +166,24 @@ const generateTranslation = async (text, funcCallTracker) => {
     }
 
     // store text flag so they aren't accidently translated
-    let textFlagsTemp = {}
+    let textFlags = {}
     let match
     // \$\{[[^\}]*\}|\[[^\]]*\] will work for examples:
     // `${5 flag:shop_times}` or `\t[`见见`,z1]` or `[v]` or `\t[`见见`]` `\b`
     /*
     \$\{[^\}]*\}|
-    \t*\x08*\[[\w\d\s !@#$%^&*?？^-_.\\+\:\(\)\,\'\"\~;\/`\-=<>{}]*\]?|
+    \(\t|\x08)*(\\m|\s)?\[[\w\d\s !@#$%^&*?？^-_.\\+\:\(\)\,\'\"\~;\/`\-=<>{}]*\]?|
     \,?[\w\d\s !@#$%^&*?？^-_.\\+\:\(\)\,\'\"\~;\/`\-=<>{}]*\]|
     \t+|
     \x08+
     */
-    while (match = /\$\{[^\}]*\}|\t*\x08*\[[\w\d\s !@#$%^&*?？^-_.\\+\:\(\)\,\'\"\~;\/`\-=<>{}]*\]?|\,?[\w\d\s !@#$%^&*?？^-_.\\+\:\(\)\,\'\"\~;\/`\-=<>{}]*\]|\t+|\x08+/i.exec(text)) {
-        const key = `@${Object.keys(textFlagsTemp).length}`
-        textFlagsTemp[key] = match[0]
+    while (match = /\$\{[^\}]*\}|(\t|\x08)*(\\m|\s)?\[[\w\d\s !@#$%^&*?？^-_.\\+\:\(\)\,\'\"\~;\/`\-=<>{}]*\]?|\,?[\w\d\s !@#$%^&*?？^-_.\\+\:\(\)\,\'\"\~;\/`\-=<>{}]*\]|\t+|\x08+/i.exec(text)) {
+        const key = ` (${Object.keys(textFlags).length}) `
+        textFlags[key] = match[0]
         if (logTranslation && console && console.log) {
             //console.log(`match[0]: ${key}`)
         }
-        text = text.replace(textFlagsTemp[key], key)
-    }
-    // use ` [1] ` instead of `@1` since it works better in the translator
-    let textFlags = {}
-    for (const [key, value] of Object.entries(textFlagsTemp)) {
-        const newKey = ` [${key.replace('@', '')}] `
-        text = text.replace(key, newKey)
-        textFlags[newKey] = value
+        text = text.replace(textFlags[key], key)
     }
 
     // translate the text
@@ -217,7 +209,7 @@ const generateTranslation = async (text, funcCallTracker) => {
 
     // insert the text flags back
     for (const [key, value] of Object.entries(textFlags)) {
-        const regex = new RegExp(key.replace(/\s/gi, '\\s?').replace(/(\[|\])/gi, '\\$1'), 'ig')
+        const regex = new RegExp(key.replace(/\s/gi, '\\s?').replace(/(\(|\))/gi, '\\$1'), 'ig')
         translatedText = translatedText.replace(regex, value)
     }
 
