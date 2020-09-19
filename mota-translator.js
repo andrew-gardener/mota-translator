@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tower of the Sorcerer Translate
 // @namespace    http://tampermonkey.net/
-// @version      3.3.1
+// @version      3.3.2
 // @match        https://h5mota.com/games/*
 // @run-at       document-end
 // @grant        GM_setValue
@@ -351,6 +351,15 @@ const addLibPrototypeOverrides = () => {
         translateWrapper(this)
     }
 
+
+    ui.prototype._old_drawTextContent = ui.prototype.drawTextContent
+    ui.prototype.drawTextContent = function(ctx, content, config) {
+        const translateWrapper = async (_this) => {
+            const _content = await generateTranslation(content, 'drawTextContent')
+            _this._old_drawTextContent(ctx, _content, config)
+        }
+        translateWrapper(this)
+    }
 
     ui.prototype._old_textImage = ui.prototype.textImage
     ui.prototype.textImage = function(content, lineHeight) {
