@@ -351,12 +351,11 @@ const addLibPrototypeOverrides = () => {
         translateWrapper(this)
     }
 
-
-    ui.prototype._old_drawTextContent = ui.prototype.drawTextContent
-    ui.prototype.drawTextContent = function(ctx, content, config) {
+    ui.prototype._old_uievent_drawTextContent = ui.prototype._uievent_drawTextContent
+    ui.prototype._uievent_drawTextContent = function(data) {
         const translateWrapper = async (_this) => {
-            const _content = await generateTranslation(content, 'drawTextContent')
-            _this._old_drawTextContent(ctx, _content, config)
+            data.text = await generateTranslation(data.text, '_uievent_drawTextContent')
+            _this._old_uievent_drawTextContent(data)
         }
         translateWrapper(this)
     }
