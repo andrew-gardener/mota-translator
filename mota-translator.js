@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Tower of the Sorcerer Translate
 // @namespace    http://tampermonkey.net/
-// @version      3.3.2
+// @version      3.4.0
 // @match        https://h5mota.com/games/*
 // @run-at       document-end
 // @grant        GM_setValue
@@ -261,8 +261,20 @@ const translateResources = async () => {
 
     // no promise because its easier
     translateStartButtons()
-    addLibPrototypeOverrides()
     translateCustom()
+
+    // override ui functions after plugins loaded
+    core._old_init_plugins = core._init_plugins
+    core._init_plugins = function () {
+        this._old_init_plugins()
+        addLibPrototypeOverrides()
+    }
+    core._old_initPlugins = core._initPlugins
+    core._initPlugins = function () {
+        this._old_initPlugins()
+        addLibPrototypeOverrides()
+    }
+
 
     let promises = []
     promises.push(translateFloors())
