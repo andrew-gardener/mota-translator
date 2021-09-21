@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Tower of the Sorcerer Translate
+// @name         Tower of the Sorcerer Translate (wip)
 // @namespace    http://tampermonkey.net/
 // @version      3.4.0
 // @match        https://h5mota.com/games/*
